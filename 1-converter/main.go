@@ -2,11 +2,24 @@ package main
 
 import (
 	"fmt"
+	"math"
 )
 
-const USDtoEUR = 0.93
-const USDtoRUB = 75
-const EURtoRUB = USDtoRUB / USDtoEUR
+var currencyTree = map[string]map[string]float64{
+	"USD": {
+		"EUR": 0.93,
+		"RUB": 75.0,
+	},
+
+	"EUR": {
+		"USD": 1.11,
+		"RUB": 86.0,
+	},
+	"RUB": {
+		"USD": 0.0133,
+		"EUR": 0.01239,
+	},
+}
 
 func main() {
 	currency := askCurrency()
@@ -14,7 +27,8 @@ func main() {
 	targetCurrency := askTargetCurrency(currency)
 	res := convert(currency, targetCurrency, amount)
 
-	fmt.Println("Вы конвертируете :", amount, currency, "в ", res, targetCurrency)
+	fmt.Printf("Вы конвертируете: %.2f %s в %.2f %s\n", amount, currency, res, targetCurrency)
+
 }
 
 func askCurrency() string {
@@ -67,23 +81,13 @@ func askTargetCurrency(currency string) string {
 }
 
 func convert(currency, targetCurrency string, amount float64) float64 {
-	switch {
-	case currency == "USD" && targetCurrency == "EUR":
-		return amount * USDtoEUR
-	case currency == "USD" && targetCurrency == "RUB":
-		return amount * USDtoRUB
-	case currency == "EUR" && targetCurrency == "USD":
-		return amount / USDtoEUR
-	case currency == "EUR" && targetCurrency == "RUB":
-		return amount * EURtoRUB
-	case currency == "RUB" && targetCurrency == "USD":
-		return amount / USDtoRUB
-	case currency == "RUB" && targetCurrency == "EUR":
-		return amount / EURtoRUB
-	default:
-		fmt.Println("Некорректная операция конвертации")
+	res := amount * currencyTree[currency][targetCurrency]
+	if math.IsNaN(res) {
+		fmt.Println("Ошибка конвертации: результат недействителен")
 		return 0
 	}
+
+	return math.Round(res*100) / 100
 }
 
 func getTargetCurrency(currency string) (string, string) {
