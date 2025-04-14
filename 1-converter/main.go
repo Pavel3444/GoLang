@@ -5,7 +5,9 @@ import (
 	"math"
 )
 
-var currencyTree = map[string]map[string]float64{
+type CurrencyMap map[string]map[string]float64
+
+var currencyTree = &CurrencyMap{
 	"USD": {
 		"EUR": 0.93,
 		"RUB": 75.0,
@@ -25,7 +27,7 @@ func main() {
 	currency := askCurrency()
 	amount := askAmount()
 	targetCurrency := askTargetCurrency(currency)
-	res := convert(currency, targetCurrency, amount)
+	res := convert(currencyTree, currency, targetCurrency, amount)
 
 	fmt.Printf("Вы конвертируете: %.2f %s в %.2f %s\n", amount, currency, res, targetCurrency)
 
@@ -80,8 +82,8 @@ func askTargetCurrency(currency string) string {
 	return targetCurrency
 }
 
-func convert(currency, targetCurrency string, amount float64) float64 {
-	res := amount * currencyTree[currency][targetCurrency]
+func convert(tree *CurrencyMap, currency, targetCurrency string, amount float64) float64 {
+	res := amount * (*tree)[currency][targetCurrency]
 	if math.IsNaN(res) {
 		fmt.Println("Ошибка конвертации: результат недействителен")
 		return 0
