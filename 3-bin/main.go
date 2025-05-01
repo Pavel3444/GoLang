@@ -1,42 +1,27 @@
 package main
 
 import (
-	"fmt"
-	"time"
-
 	"bin/bins"
+	"bin/file"
 	"bin/storage"
+	"log"
 )
 
-const fileName = "bins.json"
-
 func main() {
-	list := bins.NewBinList()
+	fileClient := file.NewFile()
+	store := storage.NewStorage(fileClient)
 
-	list.AddBin(false, "Firstbin")
-	list.AddBin(true, "Secondbin")
+	binRepo := bins.NewBinRepository(store, "bins.json")
 
-	data, err := list.ToBytes()
+	b, err := binRepo.Add(false, "first bin test")
 	if err != nil {
-		fmt.Printf("Error serializing bins: %v\n", err)
-		return
+		log.Fatalf("cannot add bin: %v", err)
 	}
+	log.Printf("Created bin: %+v\n", b)
 
-	if err := storage.SaveBins(data, fileName); err != nil {
-		fmt.Printf("Error saving bins: %v\n", err)
-		return
+	all, err := binRepo.List()
+	if err != nil {
+		log.Fatalf("cannot list bins: %v", err)
 	}
-	fmt.Printf("Bins successfully saved to %q\n", fileName)
-
-	loaded := bins.NewBinList()
-	if _, err := storage.ReadBins(fileName, loaded); err != nil {
-		fmt.Printf("Error reading bins: %v\n", err)
-		return
-	}
-
-	fmt.Println("Loaded bins:")
-	for _, b := range loaded.Bins {
-		fmt.Printf("- ID: %s, Name: %s, Private: %t, Created: %s\n",
-			b.Id, b.Name, b.Private, b.CreateTime.Format(time.RFC3339))
-	}
+	log.Printf("All bins: %+v\n", all)
 }

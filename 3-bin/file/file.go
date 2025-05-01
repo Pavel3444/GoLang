@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bin/interfaces"
 	"fmt"
 	"mime"
 	"net/http"
@@ -8,7 +9,13 @@ import (
 	"path/filepath"
 )
 
-func ReadFile(source string) (data []byte, contentType string, err error) {
+type FileImpl struct{}
+
+func NewFile() interfaces.File {
+	return &FileImpl{}
+}
+
+func (*FileImpl) Read(source string) (data []byte, contentType string, err error) {
 
 	data, err = os.ReadFile(source)
 	if err != nil {
@@ -26,7 +33,7 @@ func ReadFile(source string) (data []byte, contentType string, err error) {
 	return data, contentType, nil
 }
 
-func WriteFile(content []byte, name string) error {
+func (*FileImpl) Write(content []byte, name string) error {
 	file, err := os.Create(name)
 	if err != nil {
 		return fmt.Errorf("Error creating file: %w", err)
@@ -45,3 +52,5 @@ func WriteFile(content []byte, name string) error {
 	}
 	return nil
 }
+
+var _ interfaces.File = (*FileImpl)(nil)
