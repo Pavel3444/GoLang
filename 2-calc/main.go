@@ -14,12 +14,25 @@ const (
 )
 
 func main() {
+	operations := map[string]func([]int64) float64{
+
+		opAvg: getAvg,
+		opSum: getSum,
+		opMed: getMed,
+	}
+
 	var operationType string
 	var numbersString string
 	var numbersArray []int64
 
+	availableOps := make([]string, 0, len(operations))
+	for op := range operations {
+		availableOps = append(availableOps, op)
+	}
+	sort.Strings(availableOps)
+
 	for {
-		fmt.Println("Input operation type (AVG/SUM/MED)")
+		fmt.Printf("Input operation type (%s)\n", strings.Join(availableOps, "/"))
 		_, err := fmt.Scan(&operationType)
 		operationType = strings.ToUpper(operationType)
 		if err == nil && (operationType == opAvg || operationType == opSum || operationType == opMed) {
@@ -42,33 +55,32 @@ func main() {
 	if len(numbersArray) == 0 {
 		fmt.Println("No numbers provided")
 	} else {
-		switch operationType {
-		case opAvg:
-
-			fmt.Println("AVG = ", getAvg(numbersArray))
-		case opSum:
-			fmt.Println("SUM = ", getSum(numbersArray))
-		case opMed:
-			fmt.Println("MED = ", getMed(numbersArray))
+		op, ok := operations[operationType]
+		if !ok {
+			fmt.Println("Unsupported operation")
+			return
 		}
+
+		result := op(numbersArray)
+
+		fmt.Printf("%s = %v\n", operationType, result)
 	}
+
 }
 
 func getAvg(numbersArray []int64) float64 {
 	sum := getSum(numbersArray)
-	average := float64(sum) / float64(len(numbersArray))
+	average := sum / float64(len(numbersArray))
 	return average
 
 }
-
-func getSum(numbersArray []int64) int64 {
+func getSum(numbersArray []int64) float64 {
 	var sum int64
 	for _, num := range numbersArray {
 		sum += num
 	}
-	return sum
+	return float64(sum)
 }
-
 func getMed(numbersArray []int64) float64 {
 	sortedArray := make([]int64, len(numbersArray))
 	copy(sortedArray, numbersArray)
