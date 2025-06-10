@@ -1,115 +1,86 @@
 package api
 
 import (
-	"github.com/joho/godotenv"
+	"log"
 	"os"
 	"testing"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	err := godotenv.Load("../.env")
-	if err != nil {
-		panic("не удалось загрузить .env: " + err.Error())
+
+	if err := godotenv.Load("../.env"); err != nil {
+		log.Println("Warning: .env file not found, relying on existing environment variables")
 	}
+}
+
+func createTempJSONFile(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp("", "*.json")
+	if err != nil {
+		t.Fatalf("не удалось создать temp-файл: %v", err)
+	}
+	t.Cleanup(func() { os.Remove(f.Name()) })
+
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("не удалось записать в temp-файл: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("не удалось закрыть temp-файл: %v", err)
+	}
+	return f.Name()
+}
+
+func createTestBin(t *testing.T, client *JSONBinClient, content, name string) *CreatedBin {
+	t.Helper()
+	path := createTempJSONFile(t, content)
+	bin, err := client.CreateBin(path, name)
+	require.NoError(t, err, "CreateBin(%s) failed", name)
+
+	t.Cleanup(func() {
+		if err := client.DeleteBin(bin.Id); err != nil {
+			t.Errorf("DeleteBin(%s) failed: %v", bin.Id, err)
+		}
+	})
+	return bin
 }
 
 func TestCreateBin(t *testing.T) {
 	client := NewJSONBinClient()
-
-	tmpFile, err := os.CreateTemp("", "*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	tmpFile.WriteString(`{"example": "data"}`)
-	tmpFile.Close()
-
-	bin, err := client.CreateBin(tmpFile.Name(), "test-bin")
-	if err != nil {
-		t.Fatalf("ошибка при создании бин: %v", err)
-	}
-	if bin.Id == "" {
-		t.Error("ожидался непустой ID")
-	}
-
-	defer client.DeleteBin(bin.Id)
+	bin := createTestBin(t, client, `{"example":"data"}`, "test-create")
+	require.NotEmpty(t, bin.Id, "ожидался непустой ID")
 }
 
 func TestGetBin(t *testing.T) {
 	client := NewJSONBinClient()
+	bin := createTestBin(t, client, `{"foo":"bar"}`, "test-get")
 
-	tmpFile, err := os.CreateTemp("", "*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	tmpFile.WriteString(`{"example": "data"}`)
-	tmpFile.Close()
-
-	bin, err := client.CreateBin(tmpFile.Name(), "get-test-bin")
-	if err != nil {
-		t.Fatalf("ошибка при создании бин: %v", err)
-	}
-	defer client.DeleteBin(bin.Id)
-
-	_, err = client.GetBin(bin.Id)
-	if err != nil {
-		t.Errorf("ошибка при получении бин: %v", err)
-	}
+	data, err := client.GetBin(bin.Id)
+	require.NoError(t, err, "GetBin(%s) should succeed", bin.Id)
+	assert.Contains(t, string(data), `"foo":"bar"`)
 }
 
 func TestUpdateBin(t *testing.T) {
 	client := NewJSONBinClient()
+	bin := createTestBin(t, client, `{"a":1}`, "test-update")
 
-	tmpFile, err := os.CreateTemp("", "*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(`{"initial": "data"}`)
-	tmpFile.Close()
+	updatePath := createTempJSONFile(t, `{"a":2}`)
+	require.NoError(t, client.UpdateBin(updatePath, bin.Id), "UpdateBin should not error")
 
-	bin, err := client.CreateBin(tmpFile.Name(), "update-test-bin")
-	if err != nil {
-		t.Fatalf("ошибка при создании бин: %v", err)
-	}
-	defer client.DeleteBin(bin.Id)
-
-	updateFile, err := os.CreateTemp("", "*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(updateFile.Name())
-	updateFile.WriteString(`{"updated": "data"}`)
-	updateFile.Close()
-
-	err = client.UpdateBin(updateFile.Name(), bin.Id)
-	if err != nil {
-		t.Errorf("ошибка при обновлении бин: %v", err)
-	}
+	data, err := client.GetBin(bin.Id)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"a":2`)
 }
 
 func TestDeleteBin(t *testing.T) {
 	client := NewJSONBinClient()
+	bin := createTestBin(t, client, `{"x":"y"}`, "test-delete")
 
-	tmpFile, err := os.CreateTemp("", "*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpFile.Name())
+	require.NoError(t, client.DeleteBin(bin.Id), "DeleteBin should not error")
 
-	tmpFile.WriteString(`{"to_be_deleted": "yes"}`)
-	tmpFile.Close()
-
-	bin, err := client.CreateBin(tmpFile.Name(), "delete-test-bin")
-	if err != nil {
-		t.Fatalf("ошибка при создании бин: %v", err)
-	}
-
-	err = client.DeleteBin(bin.Id)
-	if err != nil {
-		t.Errorf("ошибка при удалении бин: %v", err)
-	}
+	_, err := client.GetBin(bin.Id)
+	assert.Error(t, err, "после удаления GetBin должен вернуть ошибку")
 }
