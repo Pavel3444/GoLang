@@ -25,12 +25,8 @@ func createTempJSONFile(t *testing.T, content string) string {
 	}
 	t.Cleanup(func() { os.Remove(f.Name()) })
 
-	if _, err := f.WriteString(content); err != nil {
-		t.Fatalf("не удалось записать в temp-файл: %v", err)
-	}
-	if err := f.Close(); err != nil {
-		t.Fatalf("не удалось закрыть temp-файл: %v", err)
-	}
+	require.NoError(t, func() error { _, err := f.WriteString(content); return err }(), "не удалось записать в temp-файл")
+	require.NoError(t, f.Close(), "не удалось закрыть temp-файл")
 	return f.Name()
 }
 
@@ -41,9 +37,7 @@ func createTestBin(t *testing.T, client *JSONBinClient, content, name string) *C
 	require.NoError(t, err, "CreateBin(%s) failed", name)
 
 	t.Cleanup(func() {
-		if err := client.DeleteBin(bin.Id); err != nil {
-			t.Errorf("DeleteBin(%s) failed: %v", bin.Id, err)
-		}
+		require.NoError(t, client.DeleteBin(bin.Id), "DeleteBin(%s) failed", bin.Id)
 	})
 	return bin
 }
